@@ -5304,7 +5304,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
 
     // ----- the school of silver fish, flocking in from the right and getting
     // scooped cleanly into the open right-hand mouth of the net.
-    const NS = 150, SIM0 = A0, SIM_DT = 1 / 60, SIM_N = Math.ceil((ASHORE + 1.5 - SIM0) / SIM_DT) + 2, SIM_W = 7;
+    const NS = 150, SIM0 = A0, SIM_DT = 1 / 60, SIM_N = Math.ceil((T_EMERGE + 1.0 - SIM0) / SIM_DT) + 2, SIM_W = 7;
     const SUN = (() => { const v = [-0.45, 1, 0.3], l = Math.hypot(...v); return v.map(c => c / l); })();
     let SCHOOL = null;
     function simSchool() {
@@ -6035,9 +6035,9 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
     // The underwater view into g. From T_SPLIT the net and the fish go on a
     // layer of their own (gb), so the part of the net that comes up out of
     // the water can be drawn over the sky; that layer is only cleared and
-    // pencilled inside a box round the net (sheets.bagBox, in device pixels).
+    // pencilled inside a box round the net (bagBox, in device pixels).
     // bg: whether the water behind the net is still needed.
-    let bagLast = null;
+    let bagLast = null, bagBox = null;   // bagBox is kept here, not on the scene's canvases, which freeScenes empties
     function drawUnder(g, t, galCanvas, sheets, gb, split, bg) {
       const shK = shallowAt(t);
       shallowNow = shK;
@@ -6084,7 +6084,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
           putRows(g, sheets.uwPencil, shK, 'source-atop');
           putRows(g, sheets.uwGrain, 0.08 * shK, 'destination-out');
         }
-        sheets.bagBox = null;
+        bagBox = null;
         return;
       }
       if (bg && shK > 0.005) {
@@ -6106,7 +6106,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
       else gb.clearRect(0, 0, W, H);
       gb.clearRect(box[0], box[1], box[2] - box[0], box[3] - box[1]);
       bagLast = [...box, W, H];
-      sheets.bagBox = box;
+      bagBox = box;
       if (box[2] <= box[0] || box[3] <= box[1] || t <= A0) return;
       gb.save(); gb.beginPath(); gb.rect(box[0], box[1], box[2] - box[0], box[3] - box[1]); gb.clip();
       zoomTransform(gb);
@@ -7127,7 +7127,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
       const cz = netZ(t), R = ringR(t);
       if (cz - cam.z < 0.8 || !P3(netX(t), 0, cz, Q)) return L;
       const k = Q[2], x = Q[0], y = Q[1];
-      const box = [x - 1.0 * R * k - 40, y - (MOUND * 1.8 + 0.3) * k - 40, x + 1.0 * R * k + 40, y + 0.4 * k + 30];
+      const box = [x - 0.96 * R * k - 24, y - (1.25 * MOUND + 0.07) * k - 24, x + 0.96 * R * k + 24, y + 0.2 * k + 24];   // just round what heapAt draws
       if (!heapC || heapC.width !== canvas.width || heapC.height !== canvas.height) { heapC = windowCanvas(); heapLast = null; }
       const g = heapC.getContext('2d'), kk = scale * dpr;
       const x0 = Math.max(0, Math.floor(box[0] * kk + offX * dpr) - 2), y0 = Math.max(0, Math.floor(box[1] * kk + offY * dpr) - 2);
@@ -7752,7 +7752,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
         g.save(); g.beginPath(); g.rect(-400, HORIZON, SW + 800, SH - HORIZON + 400); g.clip(); g.setTransform(1, 0, 0, 1, 0, 0);
         if (under > 0.003) { g.globalAlpha = under; g.drawImage(c.uw, 0, 0); }
         // the part of the net that's under the water
-        const B = c.bagBox || [0, 0, c.bag.width, c.bag.height], y0 = Math.max(B[1], Math.floor(wRow)), bh = B[3] - y0, bw = B[2] - B[0];
+        const B = bagBox || [0, 0, c.bag.width, c.bag.height], y0 = Math.max(B[1], Math.floor(wRow)), bh = B[3] - y0, bw = B[2] - B[0];
         if (bagUnder > 0.003 && bh > 0 && bw > 0) { g.globalAlpha = bagUnder; g.drawImage(c.bag, B[0], y0, bw, bh, B[0], y0, bw, bh); }
         g.globalAlpha = Math.max(under, bagUnder);
         const tintK = smooth(ramp(t, T_CROSS + 0.05, 1.0));
@@ -7829,7 +7829,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
       const surfA = smooth(ramp(t, T_CROSS, 0.6));
       // the net seen through the water fades as the water darkens; its top,
       // out of the water, turns into the catch on the surface
-      const bagUnder = 1 - smooth(ramp(t, T_EMERGE + 0.2, 1.1));
+      const bagUnder = 1 - smooth(ramp(t, T_EMERGE + 0.2, 0.25));   // the water tint hides it by T_EMERGE + 0.3 anyway
       const bagTop = 1 - smooth(ramp(t, T_EMERGE + 0.3, 0.45));   // after the catch is mostly in, so nothing dips
       const wRow = ((HORIZON + cam.y * F / uwDist(t)) * scale + offY) * dpr, band = 24 * scale * dpr;
       const landA = landAlphaAt(t);
@@ -7841,7 +7841,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
       drawSeaLayer(c, t, d, clear, under, surfA, landA, w, bagUnder, wRow - band / 2);
       drawShoreLayer(c, t, d, landA, w, aK);
       // the net out of the water, fading softly into the net under it at the waterline
-      const B = c.bagBox;
+      const B = bagBox;
       if (bagTop > 0.003 && B) {
         putRows(ctx, c.bag, bagTop, 'source-over', B[1], Math.min(B[3], wRow - band / 2), B[0], B[2]);
         for (let i = 0; i < 8; i++) putRows(ctx, c.bag, bagTop * (1 - (i + 0.5) / 8), 'source-over', wRow - band / 2 + i * band / 8, Math.min(B[3], wRow - band / 2 + (i + 1) * band / 8), B[0], B[2]);
@@ -7944,7 +7944,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
         if (t <= SEA_JOIN) { drawGalaxyToBubbles(ctx, t, c.galaxy, true); return; }
         const d = duskAt(t);
         const keepY = cam.y, keepZ = cam.z;
-        if (t < T_EMERGE + 1.4) {
+        if (t < T_EMERGE + 0.76) {   // bagTop is gone by T_EMERGE + 0.75
           uwMode = true;
           cam.y = uwCamY(t); cam.z = uwCamZ(t);
           setNet(t);
@@ -7963,7 +7963,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
             ctx.restore();
             stageTransform(ctx); meniscus(ctx, t, y, smooth(clamp01((y + 80) / 140)));
           }
-          const B = c.bagBox;
+          const B = bagBox;
           if (B) putRows(ctx, c.bag, 1, 'source-over', B[1], B[3], B[0], B[2]);
           if (shK > 0.01) {
             const uwAtm = shK * (1 - smooth(ramp(t, T_CROSS - 0.5, 0.5)));
