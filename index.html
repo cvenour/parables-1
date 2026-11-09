@@ -5017,6 +5017,48 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
   const rgba = (c, a) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${clamp01(a).toFixed(3)})`;
   const modp = (a, n) => ((a % n) + n) % n;
 
+  // ----- the pencil over the layers that change every frame: the water, the
+  // sea and the shore. texFill paints a repeating texture over the whole
+  // window, and Firefox takes about 20 ms for each one at full screen, so
+  // four per layer, every frame, made this scene choppy there. These
+  // textures never move (their time is 0), so each layer's are painted just
+  // once, into a sheet of their own: each texture at its own strength, laid
+  // over the ones before. Laid on in a single 'source-atop' pass, a sheet
+  // gives the same result as the separate passes. The sheets are painted one
+  // texture at a time on quiet frames while the water's still dark, so no
+  // frame waits for them; a jump past that paints what's left at once.
+  const SHEET_PASSES = [
+    ['uwPencil', 'hatchDark', 0.14, 4], ['uwPencil', 'hatchCross', 0.07, 10], ['uwPencil', 'hatchLight', 0.2, 5],
+    ['uwGrain', 'grain', 1, 6],
+    ['seaPencil', 'hatchDark', 0.10, 1], ['seaPencil', 'hatchCross', 0.08, 2], ['seaPencil', 'hatchLight', 0.16, 3], ['seaPencil', 'grain', 0.10, 12],
+  ];
+  let sheetPass = 0;
+  function newSheets(c) {
+    for (const [name] of SHEET_PASSES) if (!c[name]) c[name] = windowCanvas();
+    sheetPass = 0;
+  }
+  function paintSheets(c, t) {
+    const one = () => {
+      const [name, tex, alpha, seed] = SHEET_PASSES[sheetPass++], g = c[name].getContext('2d');
+      texFill(g, TEX[tex], 0, alpha, 'source-over', seed);
+      PATTERNS.delete(g);
+    };
+    if (sheetPass < SHEET_PASSES.length && t >= 217.0 + 0.3 * sheetPass) one();
+    if (t >= 220.9) while (sheetPass < SHEET_PASSES.length) one();
+  }
+  // Draw a window-sized canvas over another in the same place, from device
+  // row y0 down: the sea and shore layers have nothing above the horizon.
+  function putRows(g, src, alpha, op, y0 = 0) {
+    if (!(alpha > 0)) return;
+    y0 = Math.max(0, Math.floor(y0));
+    const h = Math.min(src.height, g.canvas.height) - y0;
+    if (h <= 0) return;
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = Math.min(1, alpha); g.globalCompositeOperation = op;
+    g.drawImage(src, 0, y0, src.width, h, 0, y0, src.width, h);
+    g.restore();
+  }
+  const horizonRow = () => (HORIZON * scale + offY) * dpr - 2;
+
   // ----- the times, all from the beats in 40-stage.js
   const T_NET0 = 218.08;               // open-mouthed net sweeps in from the left after the fish appear
   const T_CLOSE = 219.44;              // ropes start cinching & rotating the mouth slightly early around the last straggler fish
@@ -5912,7 +5954,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
     // stars resolving into rising bubbles, then fish swimming in from the right
     // and getting scooped through the open right-hand mouth of the net, then
     // ascending smoothly into the shallow Galilean cove at ASHORE.
-    function drawUnder(g, t, galCanvas) {
+    function drawUnder(g, t, galCanvas, sheets) {
       const shK = shallowAt(t);
       shallowNow = shK;
       g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
@@ -5979,10 +6021,8 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
 
       // Paper pencil hatching scales in smoothly with shK so #040814 blackness stays pure at SEA_JOIN
       if (shK > 0.005) {
-        texFill(g, TEX.hatchDark, 0, 0.14 * shK, 'source-atop', 4);
-        texFill(g, TEX.hatchCross, 0, 0.07 * shK, 'source-atop', 10);
-        texFill(g, TEX.hatchLight, 0, 0.2 * shK, 'source-atop', 5);
-        texFill(g, TEX.grain, 0, 0.08 * shK, 'destination-out', 6);
+        putRows(g, sheets.uwPencil, shK, 'source-atop');
+        putRows(g, sheets.uwGrain, 0.08 * shK, 'destination-out');
       }
     }
 
@@ -7625,13 +7665,8 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
       drawSea(g, t, d, clear, surfA, landA, w);
       drawGlints(g, t, d, surfA);
       g.restore();
-      if (surfA > 0.005) {
-        texFill(g, TEX.hatchDark, 0, 0.10 * surfA, 'source-atop', 1);
-        texFill(g, TEX.hatchCross, 0, 0.08 * surfA, 'source-atop', 2);
-        texFill(g, TEX.hatchLight, 0, 0.16 * surfA, 'source-atop', 3);
-        texFill(g, TEX.grain, 0, 0.10 * surfA, 'source-atop', 12);
-      }
-      putCache(c.ground, 1);
+      if (surfA > 0.005) putRows(g, c.seaPencil, surfA, 'source-atop', horizonRow());
+      putRows(ctx, c.ground, 1, 'source-over', horizonRow());
     }
 
     function drawShoreLayer(c, t, d, landA, w, aK) {
@@ -7645,11 +7680,8 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
       drawBeach(gs, t, d, w, aK);
       drawShoreProps(gs, t, d, aK);
       gs.restore();
-      texFill(gs, TEX.hatchDark, 0, 0.10, 'source-atop', 1);
-      texFill(gs, TEX.hatchCross, 0, 0.08, 'source-atop', 2);
-      texFill(gs, TEX.hatchLight, 0, 0.16, 'source-atop', 3);
-      texFill(gs, TEX.grain, 0, 0.10, 'source-atop', 12);
-      putCache(c.shore, landA);
+      putRows(gs, c.seaPencil, 1, 'source-atop', horizonRow());
+      putRows(ctx, c.shore, landA, 'source-over', horizonRow());
     }
 
     // ----- the moment the camera breaks through: the starlit shoreline surface
@@ -7783,12 +7815,14 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
         for (let k = 0; k < 4; k++) starSprite(k);
         c.clouds = landCache(g => drawClouds(g));
         c.hills = landCache(g => drawHills(g));
+        newSheets(c);   // the pencil for the water, the sea and the shore, painted later (see paintSheets)
         heapLast = null;
         ANGELS.forEach(H => { H.cloth.init = false; H.cloth.simT = -1e9; });
         return c;
       },
       draw(t) {
         const c = this.c;
+        paintSheets(c, t);
         uwMode = false; shotMode = 0;
         cam.x = camXAt(t); cam.y = camYAt(t); cam.z = camZAt(t); setZoom(t); setView(); setNet(t);
         if (t <= SEA_JOIN) { drawGalaxyToBubbles(ctx, t, c.galaxy, true); return; }
@@ -7799,7 +7833,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
           cam.y = Math.min(uwCamY(t), -0.015);
           cam.z = uwCamZ(t);
           setNet(t);
-          drawUnder(c.uw.getContext('2d'), t, c.galaxy);
+          drawUnder(c.uw.getContext('2d'), t, c.galaxy, c);
           uwMode = false;
           cam.y = keepY; cam.z = keepZ; setNet(t);
         }
@@ -7967,12 +8001,30 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
   });
   document.addEventListener('keyup', e => { if (e.code === 'Space') e.preventDefault(); });
 
+  // Following the music's clock smoothly. Firefox moves the music's
+  // currentTime only every 40 ms (25 times a second, while the screen draws
+  // 60 or 120 frames), so read straight off it, the pictures move in little
+  // jumps, and where the view and the fish move, in the net, it looks
+  // choppy. So between its moves the clock is carried on by the time since
+  // it last moved (for at most 80 ms, in case the music stalls), and the
+  // pictures' time follows that gently: each frame moves on by its own time
+  // and takes up a tenth of any difference. A big difference (a jump) is
+  // taken at once.
+  let clockCt = -1, clockAt = 0;
+  function musicTime(now) {
+    const ct = music.currentTime;
+    if (ct !== clockCt) { clockCt = ct; clockAt = now; }
+    return clockCt + Math.min(0.08, (now - clockAt) / 1000);
+  }
   function tick(now) {
     const dt = Math.min(0.1, (now - last) / 1000); last = now;
     edgesK = edges ? Math.min(1, edgesK + dt / 0.6) : Math.max(0, edgesK - dt / 0.6);
     if (started && !paused) {
       if (slow || !audioOk || music.paused) vt += dt * (slow ? 0.25 : 1);
-      else vt = music.currentTime;
+      else {
+        const mt = musicTime(now);
+        vt = Math.abs(mt - vt) > 0.25 ? mt : 0.9 * (vt + dt) + 0.1 * mt;
+      }
       if (vt >= PLAY_TO) finish();
     }
     if (audible()) {
