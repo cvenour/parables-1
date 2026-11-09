@@ -60,40 +60,40 @@
      ever moves: each fades in where it stays. */
   .w { position: absolute; opacity: 0; visibility: hidden; text-align: center; white-space: nowrap; color: var(--cream); }
   .soft { text-shadow: 0 0 22px rgba(14, 10, 24, 0.9), 0 0 6px rgba(14, 10, 24, 0.75), 0 0 2px rgba(14, 10, 24, 0.6); }
-  .title { left: 0; width: 1600px; top: 190px; font-size: 96px; letter-spacing: 0.015em; }
-  .subtitle { left: 0; width: 1600px; top: 320px; font-size: 36px; font-style: italic; color: var(--gold); letter-spacing: 0.03em; }
+  .title { left: 0; width: 1600px; top: 190px; font-size: 106px; letter-spacing: 0.015em; }
+  .subtitle { left: 0; width: 1600px; top: 320px; font-size: 40px; color: var(--gold); letter-spacing: 0.03em; }
   /* Each parable, small at the top: its name, then its passage, then its date */
   .card { position: absolute; left: 0; top: 50px; width: 1600px; transform-origin: 800px 0; transform: scale(0.58); }
   .card .w { position: relative; display: block; }
-  .card .name { font-size: 48px; line-height: 1.15; }
-  .card .ref { font-size: 34px; color: var(--dim); letter-spacing: 0.03em; margin-top: 16px; }
-  .card .date { font-size: 34px; color: var(--dim); letter-spacing: 0.03em; margin-top: 8px; }
+  .card .name { font-size: 53px; line-height: 1.15; }
+  .card .ref { font-size: 37px; color: var(--dim); letter-spacing: 0.03em; margin-top: 16px; }
+  .card .date { font-size: 37px; color: var(--dim); letter-spacing: 0.03em; margin-top: 8px; }
   /* The third card shows over the mustard tree's leaves and the fifth over the sea, so their glow is stronger */
   .card.strong .soft { text-shadow: 0 0 30px rgba(14, 10, 24, 0.95), 0 0 14px rgba(14, 10, 24, 0.9), 0 0 6px rgba(14, 10, 24, 0.85), 0 0 2px rgba(14, 10, 24, 0.8); }
   /* The end: the five parables again */
-  .recap-title { left: 0; width: 1600px; top: 92px; font-size: 76px; }
-  .recap-sub { left: 0; width: 1600px; top: 196px; font-size: 32px; font-style: italic; color: var(--gold); letter-spacing: 0.03em; }
-  .recap-row { left: 0; width: 1600px; height: 60px; font-size: 38px; text-align: left; }
-  .recap-row .d { position: absolute; right: 1111px; top: 0; font-style: italic; color: var(--gold); }
+  .recap-title { left: 0; width: 1600px; top: 92px; font-size: 84px; }
+  .recap-sub { left: 0; width: 1600px; top: 196px; font-size: 35px; color: var(--gold); letter-spacing: 0.03em; }
+  .recap-row { left: 0; width: 1600px; height: 60px; font-size: 42px; text-align: left; }
+  .recap-row .d { position: absolute; right: 1111px; top: 0; color: var(--gold); }
   .recap-row .n { position: absolute; left: 569px; top: 0; }
 
   /* Start, and the keys: on the night, before the picture */
   #intro { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; display: flex; flex-direction: column;
            align-items: center; justify-content: center; text-align: center; transition: opacity 0.6s ease; }
   #intro.gone { opacity: 0; visibility: hidden; transition: opacity 0.6s ease, visibility 0s 0.6s; }
-  #intro h1 { margin: 0 0 14px; font-size: 72px; font-weight: 400; letter-spacing: 0.015em; }
-  #intro .sub { margin: 0 0 50px; font-size: 32px; font-style: italic; color: var(--gold); letter-spacing: 0.03em; }
-  .btn { pointer-events: auto; font-family: "Avenir Next", Avenir, "Helvetica Neue", Arial, sans-serif; font-size: 30px; letter-spacing: 0.04em;
+  #intro h1 { margin: 0 0 14px; font-size: 79px; font-weight: 400; letter-spacing: 0.015em; }
+  #intro .sub { margin: 0 0 50px; font-size: 35px; color: var(--gold); letter-spacing: 0.03em; }
+  .btn { pointer-events: auto; font-family: "Avenir Next", Avenir, "Helvetica Neue", Arial, sans-serif; font-size: 33px; letter-spacing: 0.04em;
          color: var(--cream); cursor: pointer; background: rgba(251, 244, 230, 0.06); border: 1.5px solid rgba(251, 244, 230, 0.6);
          border-radius: 999px; padding: 12px 52px 13px; }
   .btn:hover, .btn:focus-visible { background: rgba(251, 244, 230, 0.16); outline: none; }
-  .note { margin-top: 34px; font-family: "Avenir Next", Avenir, "Helvetica Neue", Arial, sans-serif; font-size: 19px; color: var(--dim); line-height: 1.6; }
+  .note { margin-top: 34px; font-family: "Avenir Next", Avenir, "Helvetica Neue", Arial, sans-serif; font-size: 21px; color: var(--dim); line-height: 1.6; }
   /* the pause note sits in a small dark pill, so it reads over the night and over the paper */
   #paused { position: absolute; left: 50%; bottom: 14px; margin: 0; transform: translateX(-50%); white-space: nowrap;
             padding: 5px 20px 6px; border-radius: 999px; background: rgba(16, 12, 22, 0.55); color: var(--cream); }
   #message { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); padding: 5px 20px 6px; border-radius: 999px;
              background: rgba(251, 244, 230, 0.9); font-family: "Avenir Next", Avenir, "Helvetica Neue", Arial, sans-serif;
-             font-size: 17px; color: #a3442c; white-space: nowrap; }
+             font-size: 19px; color: #a3442c; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -1111,7 +1111,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
   const SORT = 228.17;         // 3:48.2   A low E flat: they walk round to the catch and stand by it; meteors begin to cross the sky; he looks down at the fish and she looks up at the meteors
   const SORT_LAST = 231.44;    // 3:51.4   A strong accent: a long evening wave runs up the beach round the net and their feet
   const RECAP = 232.30;        // 3:52.3   The loud part ends, and a soft D flat chord fades away: the wave slides back and leaves the wet sand a mirror, the list comes back, and they walk off along the shore as their robes shimmer and turn white
-  const RECAP_ROWS = [232.43, 233.23, 233.94, 234.37, 234.82];   // the five parables again, on the soft accents, over the sea at dusk, with meteors
+  const RECAP_ROWS = [232.43, 233.23, 234.03, 234.83, 235.63];   // the five parables again, 0.8 s apart (the pace of the first two), over the sea at dusk, with meteors
   const END_AT = 238.6;        // 3:58.6   Everything fades out...
   const END = 240.0;           // 4:00.0   ...and the show ends as the last chord dies away
   const DATES = [DATE1, DATE2, DATE3, DATE4, DATE5], NAMES = [NAME1, NAME2, NAME3, NAME4, NAME5];
@@ -6049,7 +6049,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
     };
     const gustAt = (x, t) => 0.62 * Math.sin(t * 2.75 - x * 0.0052) + 0.38 * Math.sin(t * 5.10 - x * 0.0108 + 1.1);
     const shoreLampAt = () => 0;
-    // The bow lantern on the moored boat lights up softly once all 5 dates have listed (RECAP_ROWS[4] = 234.82 + 1.0s fade)
+    // The bow lantern on the moored boat lights up softly once all 5 dates have listed (RECAP_ROWS[4] = 235.63 + 1.0s fade)
     const boatLampAt = t => smooth(ramp(t, RECAP_ROWS[4] + 1.0, 0.90));
     const SKY = { top: ['#47568e', '#040816'], mid: ['#c4899e', '#09132b'], low: ['#f2b278', '#132344'] };
     const skyC = (k, d) => mixHex(SKY[k][0], SKY[k][1], d);
