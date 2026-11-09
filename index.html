@@ -4998,11 +4998,11 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
 // A great woven hemp net sweeps in from the left with its 3D oval mouth
 // wide open on the right side (cork floats along its upper arch, lead
 // weights along its lower arch), begins closing and rotating upward
-// around the last straggler fish in one continuous buoyant swoop, and
-// climbs all the way up to touch the shimmering water ceiling before
-// surfacing at ASHORE (223.43). There the caught fish struggle at the
-// open water surface for one beat; then without moving a single pixel,
-// dry land slowly materializes beneath the net (224.85..227.05). Three
+// around the last straggler fish, and at once climbs to the surface, the
+// camera rising with it and out through the surface in one smooth move,
+// the net and the fish the same size on screen all the way. The caught
+// fish struggle at the surface for one beat; then without moving a single
+// pixel, dry land slowly materializes beneath the net (224.85..227.05). Three
 // people (two women and one man) walk in from left and right in normal
 // Galilean clothes; as night deepens, their robes turn pure luminous
 // white and glow like serene, otherworldly angels standing around the
@@ -5048,13 +5048,13 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
   }
   // Draw a window-sized canvas over another in the same place, from device
   // row y0 down: the sea and shore layers have nothing above the horizon.
-  function putRows(g, src, alpha, op, y0 = 0, y1 = Infinity) {
+  function putRows(g, src, alpha, op, y0 = 0, y1 = Infinity, x0 = 0, x1 = Infinity) {
     if (!(alpha > 0)) return;
-    y0 = Math.max(0, Math.floor(y0));
-    const h = Math.min(src.height, g.canvas.height, Math.ceil(y1)) - y0;
-    if (h <= 0) return;
+    y0 = Math.max(0, Math.floor(y0)); x0 = Math.max(0, Math.floor(x0));
+    const h = Math.min(src.height, g.canvas.height, Math.ceil(y1)) - y0, w = Math.min(src.width, g.canvas.width, Math.ceil(x1)) - x0;
+    if (h <= 0 || w <= 0) return;
     g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = Math.min(1, alpha); g.globalCompositeOperation = op;
-    g.drawImage(src, 0, y0, src.width, h, 0, y0, src.width, h);
+    g.drawImage(src, x0, y0, w, h, x0, y0, w, h);
     g.restore();
   }
   const horizonRow = () => (HORIZON * scale + offY) * dpr - 2;
@@ -5072,14 +5072,18 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
   // - The net starts up at once. Its distance from the camera shrinks from D0
   //   to D1, and the net and the fish shrink in step, so on screen they stay
   //   the same size the whole way.
-  // - The net rises until its top is just out of the water (T_TOP). The camera
-  //   rises with it, keeping it level on screen, then carries on up through
-  //   the surface (T_CROSS) to its place above the water (0, EYE, 0) at ASHORE.
+  // - The net rises until its top is just out of the water (T_TOP), then
+  //   settles into a low mound floating on the surface. The camera starts up
+  //   just after the net, catches it up, and carries on up through the
+  //   surface (T_CROSS) to its place above the water (0, EYE, 0) at ASHORE.
+  // - The net out of the water turns into the catch on the surface
+  //   (T_EMERGE), the same size and in the same place.
   // - From ASHORE to the end the camera and the catch don't move at all.
   const F = 1000, MID = SW / 2;
   const U_Y = -2.2, U_Z = 3.1, BED = -3.35, SHORE_Z = 3.86, EYE = 1.05;
   const HEAP = { x: 0.16, z: 2.94 };   // final resting place on dry land of the Galilean shore
-  const HEAP_R = 0.42;
+  const HEAP_K = 1.4;                  // the catch on the shore is as wide as the net was under the water
+  const HEAP_R = 0.42 * HEAP_K;
   const SURF_X = HEAP.x, SURF_Z = HEAP.z;
   const NET_X = 0.20, SCH_Z = 8.6, X0 = -5.55;
   const D0 = SCH_Z - U_Z, D1 = HEAP.z;
@@ -5096,16 +5100,17 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
   const topY = t => lerp(NET_Y0 + TOP_H, TOP1, minJerk((t - NET_IN) / (T_TOP - NET_IN)));
   const sweepY = smoothPath([[T_CLOSE, -2.16], [NET_IN, NET_Y0], [NET_IN + 0.5, NET_Y0]]);
   const uwNetY = t => t <= NET_IN ? sweepY(t) : topY(t) - TOP_H * fishK(t) * squashAt(t);
-  // where the net's centre is on screen: level at first, then down to its place on the water
-  const T_DOWN = 221.95;
-  const YC0 = HORIZON + (U_Y - NET_Y0) * F / D0, YC1 = HORIZON + (EYE - (TOP1 - TOP_H * QS * D1 / D0)) * F / D1;
-  const netScreenY = t => lerp(YC0, YC1, minJerk((t - T_DOWN) / (ASHORE - T_DOWN)));
-  const uwCamY = t => t <= NET_IN ? U_Y : t >= ASHORE ? EYE : uwNetY(t) + (netScreenY(t) - HORIZON) * uwDist(t) / F;
+  // The camera: one smooth climb, starting just after the net so the net
+  // visibly leads upward, then catching it up and rising past it out of the
+  // water. It ends at rest at (0, EYE, 0) at ASHORE.
+  const T_CAM0 = 220.6;
+  const uwCamY = t => t >= ASHORE ? EYE : lerp(U_Y, EYE, minJerk((t - T_CAM0) / (ASHORE - T_CAM0)));
   const uwCamZ = t => t <= NET_IN ? U_Z : lerp(U_Z, 0, climbK(t));
   const solveT = (f, a, b) => { for (let i = 0; i < 40; i++) { const m = (a + b) / 2; f(m) < 0 ? a = m : b = m; } return (a + b) / 2; };
   const T_TOUCH = solveT(topY, NET_IN, T_TOP);       // the net's top reaches the surface
   const T_CROSS = solveT(uwCamY, NET_IN, ASHORE);    // the camera comes up through the surface
   const T_EMERGE = 223.1;                            // the net out of the water turns into the catch on the surface
+  const T_SPLIT = solveT(t => uwCamY(t) + 1.3, NET_IN, ASHORE);   // just before the surface line comes into view
   let shotMode = 0;                    // 0 = auto, 1 = surface struggle, 2 = dry land
   const camYAt = t => shotMode === 1 || shotMode === 2 ? EYE : t < ASHORE ? uwCamY(t) : EYE;
   const camZAt = t => shotMode === 1 || shotMode === 2 ? 0 : t < ASHORE ? uwCamZ(t) : 0;
@@ -5144,7 +5149,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
   const sweepZ = smoothPath([[T_NET0, 9.5], [NET_IN, SCH_Z], [NET_IN + 0.5, SCH_Z]]);
   const netZ0 = t => t <= NET_IN ? sweepZ(t) : uwCamZ(t) + uwDist(t);
   const sweepX = smoothPath([[T_NET0, X0], [T_NET0 + 1.02, lerp(X0, NET_X, 0.46)], [NET_IN, NET_X], [NET_IN + 0.5, NET_X]]);
-  const X_END = 0.06;                  // where the net ends up across the screen, to sit on the catch's place
+  const X_END = 0.105;                 // where the net ends up across the screen, to sit on the catch's place
   const netX0 = t => t <= NET_IN ? sweepX(t) : lerp(NET_X * F / D0, X_END * F / D1, climbK(t)) * uwDist(t) / F;
   let uwMode = false;
   const isShoreMode = t => !uwMode && (shotMode === 1 || shotMode === 2 || t >= ASHORE);
@@ -6005,78 +6010,111 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
     // stars resolving into rising bubbles, then fish swimming in from the right
     // and getting scooped through the open right-hand mouth of the net, then
     // ascending smoothly into the shallow Galilean cove at ASHORE.
-    function drawUnder(g, t, galCanvas, sheets, gb) {
+    // The net and the fish, drawn into tg.
+    function drawCatch(tg, t) {
+      const netVis = t >= T_NET0 - 0.15;
+      if (netVis) {
+        drawNet(tg, t, false);
+        drawApertureRopeUnder(tg, t, false);
+      }
+      const fA = fishAlphaAt(t);
+      if (fA > 0.015) {
+        const S = schoolAt(t), items = [];
+        for (let i = 0; i < NS; i++) items.push({ z: S[i * SIM_W + 2], f: () => schoolFish(tg, t, S, i, fA) });
+        SWIM.forEach((F_, j) => { swimPos(F_, t, W3); items.push({ z: W3[2], f: () => pathFish(tg, t, (tt, o) => swimPos(F_, tt, o), F_.kind, F_.len, j * 1.7, fA) }); });
+        SMALL.forEach((F_, j) => { smallPos(F_, t, W3); items.push({ z: W3[2], f: () => pathFish(tg, t, (tt, o) => smallPos(F_, tt, o), 'small', F_.len, j * 2.3, fA) }); });
+        eelHead(t, W3); items.push({ z: W3[2], f: () => drawEel(tg, t, fA) });
+        items.sort((a, b) => b.z - a.z);
+        for (const it of items) it.f();
+      }
+      if (netVis) {
+        drawNet(tg, t, true);
+        drawApertureRopeUnder(tg, t, true);
+      }
+    }
+    // The underwater view into g. From T_SPLIT the net and the fish go on a
+    // layer of their own (gb), so the part of the net that comes up out of
+    // the water can be drawn over the sky; that layer is only cleared and
+    // pencilled inside a box round the net (sheets.bagBox, in device pixels).
+    // bg: whether the water behind the net is still needed.
+    let bagLast = null;
+    function drawUnder(g, t, galCanvas, sheets, gb, split, bg) {
       const shK = shallowAt(t);
       shallowNow = shK;
-      g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-      g.clearRect(0, 0, g.canvas.width, g.canvas.height);
-      zoomTransform(g);
-      drawWaterBack(g, shK);
-
-      // Galaxy spiral stars resolving into rising bubbles in the dark ocean deep
-      const bubFade = 1 - smooth(ramp(t, 220.85, 1.75));
-      if (bubFade > 0.002) {
-        drawGalaxyToBubbles(g, t, galCanvas, false, bubFade);
+      if (bg) {
+        g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+        g.clearRect(0, 0, g.canvas.width, g.canvas.height);
         zoomTransform(g);
-      }
+        drawWaterBack(g, shK);
 
-      drawCeiling(g, t, shK);
-      // a shimmering ring on the underside of the surface where the net's top breaks through it
-      if (t >= T_TOUCH - 0.1 && t < T_CROSS && cam.y < -0.02) {
-        const touchK = smooth(ramp(t, T_TOUCH - 0.08, 0.30)) * (1 - smooth(ramp(t, T_CROSS - 0.3, 0.25)));
-        if (touchK > 0.01 && P3(NET.cx + NET.Lf * NET.ax, 0, NET.cz + NET.Lf * NET.az, Q)) {
-          const rk = Q[2] * fishK(t), asp = clampN(-cam.y / Math.max(0.8, (NET.cz - cam.z)) * 0.65, 0.08, 0.24);
-          g.save(); g.globalCompositeOperation = 'lighter';
-          glow(g, Q[0], Q[1], 0.36 * rk, '182,218,255', 0.26 * touchK);
-          for (let rr = 0; rr < 3; rr++) {
-            const ph = ((t * 1.35 + rr / 3) % 1), rad = (0.14 + 0.46 * ph) * rk;
-            g.strokeStyle = `rgba(216,236,255,${(0.42 * touchK * Math.sin(Math.PI * ph)).toFixed(3)})`;
-            g.lineWidth = Math.max(0.8, 1.7 * (1 - 0.5 * ph));
-            g.beginPath(); g.ellipse(Q[0], Q[1], rad, Math.max(2.2, rad * asp), 0, 0, TAU); g.stroke();
-          }
-          g.restore();
+        // Galaxy spiral stars resolving into rising bubbles in the dark ocean deep
+        const bubFade = 1 - smooth(ramp(t, 220.85, 1.75));
+        if (bubFade > 0.002) {
+          drawGalaxyToBubbles(g, t, galCanvas, false, bubFade);
+          zoomTransform(g);
         }
-      }
-      drawFloor(g, t, shK);
-      drawCaustics(g, t, shK);
-      drawWeeds(g, t, shK);
 
-      // Paper pencil hatching scales in smoothly with shK so #040814 blackness stays pure at SEA_JOIN
-      if (shK > 0.005) {
+        drawCeiling(g, t, shK);
+        // a shimmering ring on the underside of the surface where the net's top breaks through it
+        if (t >= T_TOUCH - 0.1 && t < T_CROSS && cam.y < -0.02) {
+          const touchK = smooth(ramp(t, T_TOUCH - 0.08, 0.30)) * (1 - smooth(ramp(t, T_CROSS - 0.3, 0.25)));
+          if (touchK > 0.01 && P3(NET.cx + NET.Lf * NET.ax, 0, NET.cz + NET.Lf * NET.az, Q)) {
+            const rk = Q[2] * fishK(t), asp = clampN(-cam.y / Math.max(0.8, (NET.cz - cam.z)) * 0.65, 0.08, 0.24);
+            g.save(); g.globalCompositeOperation = 'lighter';
+            glow(g, Q[0], Q[1], 0.36 * rk, '182,218,255', 0.26 * touchK);
+            for (let rr = 0; rr < 3; rr++) {
+              const ph = ((t * 1.35 + rr / 3) % 1), rad = (0.14 + 0.46 * ph) * rk;
+              g.strokeStyle = `rgba(216,236,255,${(0.42 * touchK * Math.sin(Math.PI * ph)).toFixed(3)})`;
+              g.lineWidth = Math.max(0.8, 1.7 * (1 - 0.5 * ph));
+              g.beginPath(); g.ellipse(Q[0], Q[1], rad, Math.max(2.2, rad * asp), 0, 0, TAU); g.stroke();
+            }
+            g.restore();
+          }
+        }
+        drawFloor(g, t, shK);
+        drawCaustics(g, t, shK);
+        drawWeeds(g, t, shK);
+
+      }
+      if (t >= T_NET0 - 0.15) buildNetGrid();
+      if (!split) {
+        // before the surface line comes down, the net is drawn into the water, as one picture
+        if (t > A0) drawCatch(g, t);
+        if (shK > 0.005) {
+          putRows(g, sheets.uwPencil, shK, 'source-atop');
+          putRows(g, sheets.uwGrain, 0.08 * shK, 'destination-out');
+        }
+        sheets.bagBox = null;
+        return;
+      }
+      if (bg && shK > 0.005) {
         putRows(g, sheets.uwPencil, shK, 'source-atop');
         putRows(g, sheets.uwGrain, 0.08 * shK, 'destination-out');
       }
-
-      // The net and the fish go on a layer of their own (gb), so the part of
-      // the net that comes up out of the water can be drawn over the sky.
+      const W = gb.canvas.width, H = gb.canvas.height;
+      let box = [0, 0, W, H];
+      if (t > T_SHUT + 0.9) {
+        // once the ropes have gone, everything is inside the net
+        let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+        for (const col of NET_G) for (const p of col) if (p[3]) { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1]; }
+        const m = 40, k = scale * dpr;
+        if (x1 > x0) box = [Math.max(0, Math.floor((x0 - m) * k + offX * dpr)), Math.max(0, Math.floor((y0 - m) * k + offY * dpr)),
+          Math.min(W, Math.ceil((x1 + m) * k + offX * dpr)), Math.min(H, Math.ceil((y1 + m) * k + offY * dpr))];
+      }
       gb.setTransform(1, 0, 0, 1, 0, 0); gb.globalAlpha = 1; gb.globalCompositeOperation = 'source-over';
-      gb.clearRect(0, 0, gb.canvas.width, gb.canvas.height);
+      if (bagLast && bagLast[4] === W && bagLast[5] === H) gb.clearRect(bagLast[0], bagLast[1], bagLast[2] - bagLast[0], bagLast[3] - bagLast[1]);
+      else gb.clearRect(0, 0, W, H);
+      gb.clearRect(box[0], box[1], box[2] - box[0], box[3] - box[1]);
+      bagLast = [...box, W, H];
+      sheets.bagBox = box;
+      if (box[2] <= box[0] || box[3] <= box[1] || t <= A0) return;
+      gb.save(); gb.beginPath(); gb.rect(box[0], box[1], box[2] - box[0], box[3] - box[1]); gb.clip();
       zoomTransform(gb);
-      if (t > A0) {
-        const netVis = t >= T_NET0 - 0.15;
-        if (netVis) {
-          buildNetGrid();
-          drawNet(gb, t, false);
-          drawApertureRopeUnder(gb, t, false);
-        }
-        const fA = fishAlphaAt(t);
-        if (fA > 0.015) {
-          const S = schoolAt(t), items = [];
-          for (let i = 0; i < NS; i++) items.push({ z: S[i * SIM_W + 2], f: () => schoolFish(gb, t, S, i, fA) });
-          SWIM.forEach((F_, j) => { swimPos(F_, t, W3); items.push({ z: W3[2], f: () => pathFish(gb, t, (tt, o) => swimPos(F_, tt, o), F_.kind, F_.len, j * 1.7, fA) }); });
-          SMALL.forEach((F_, j) => { smallPos(F_, t, W3); items.push({ z: W3[2], f: () => pathFish(gb, t, (tt, o) => smallPos(F_, tt, o), 'small', F_.len, j * 2.3, fA) }); });
-          eelHead(t, W3); items.push({ z: W3[2], f: () => drawEel(gb, t, fA) });
-          items.sort((a, b) => b.z - a.z);
-          for (const it of items) it.f();
-        }
-        if (netVis) {
-          drawNet(gb, t, true);
-          drawApertureRopeUnder(gb, t, true);
-        }
-        if (shK > 0.005) {
-          putRows(gb, sheets.uwPencil, shK, 'source-atop');
-          putRows(gb, sheets.uwGrain, 0.08 * shK, 'destination-out');
-        }
+      drawCatch(gb, t);
+      gb.restore();
+      if (shK > 0.005) {
+        putRows(gb, sheets.uwPencil, shK, 'source-atop', box[1], box[3], box[0], box[2]);
+        putRows(gb, sheets.uwGrain, 0.08 * shK, 'destination-out', box[1], box[3], box[0], box[2]);
       }
     }
 
@@ -6089,8 +6127,9 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
       ? lerp(0.13, 0.19, smooth(ramp(t, ASHORE, 3.17)))
       : 0.19 + 0.81 * smooth(ramp(t, 226.6, 4.3));
     const landAlphaAt = t => t < T_LAND_IN ? 0 : smooth(ramp(t, T_LAND_IN, 2.20));
-    const splashAlphaAt = t => 1 - smooth(ramp(t, T_LAND_IN, 1.50));
-    const heapDryAlphaAt = t => smooth(ramp(t, T_LAND_IN, 1.40));
+    // the catch on dry land comes in under the catch on the water before that fades, so it never thins
+    const splashAlphaAt = t => 1 - smooth(ramp(t, T_LAND_IN + 0.4, 1.40));
+    const heapDryAlphaAt = t => smooth(ramp(t, T_LAND_IN, 0.80));
     const angelKAt = t => smooth(ramp(t, 228.0, 3.20));
     const T_WIND0 = 229.9, D_WIND = 2.30;
     const windAt = t => smooth(ramp(t, T_WIND0, D_WIND));
@@ -6349,7 +6388,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
       const gr = g.createLinearGradient(0, HORIZON, 0, seaBot);
       for (const [q, c, cd] of SEA) {
         const y = HORIZON + q * (seaBot - HORIZON), el = Math.atan((y - HORIZON) / F), fres = 0.04 + 0.96 * Math.pow(1 - Math.sin(el), 4.5);
-        gr.addColorStop(q, rgba(mixRGB(hexC(c), hexC(cd), d), (1 - clear) + clear * fres * clamp01(cam.y / 0.14)));
+        gr.addColorStop(q, rgba(mixRGB(hexC(c), hexC(cd), d), (1 - clear) + clear * fres * smooth(clamp01(cam.y / 0.6))));
       }
       g.fillStyle = gr; g.fillRect(-400, HORIZON, SW + 800, SH - HORIZON + 400);
       // soft starlight and village-lamp glints mirrored on the dark water
@@ -6718,14 +6757,15 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
       drawBasket(0.96, 2.95, 42, 30, -0.04);
       drawBasket(1.12, 2.86, 38, 27, 0.08);
     }
-    const HEAP_KINDS = ['silver', 'silver', 'silver', 'tilapia', 'tilapia', 'barbel', 'catfish', 'small', 'small'];
-    const HEAP_FISH = Array.from({ length: 40 }, (_, i) => {
+    // the fish are the same size as they were in the net under the water
+    const HEAP_FISH = Array.from({ length: 80 }, (_, i) => {
       const r = k => hash1(i * 7.13 + k * 1.37 + 900);
-      const kind = HEAP_KINDS[Math.floor(r(1) * HEAP_KINDS.length)];
-      return { u: (r(2) - 0.5) * 1.8, v: r(3) * 0.9, kind, len: kind === 'small' ? 0.08 : kind === 'barbel' ? 0.31 : kind === 'catfish' ? 0.39 : kind === 'tilapia' ? 0.22 : 0.17, dir: r(5) < 0.5 ? -1 : 1, tilt: (r(6) - 0.5) * 0.9, ph: r(7) * TAU };
+      // mostly the silver school, with the few others that were in the net
+      const kind = i === 40 ? 'catfish' : i % 26 === 7 ? 'barbel' : i % 19 === 3 ? 'tilapia' : i % 9 === 5 ? 'small' : 'silver';
+      return { u: (r(2) - 0.5) * 1.8, v: r(3) * 0.9, kind, len: kind === 'small' ? 0.06 : kind === 'barbel' ? 0.27 : kind === 'catfish' ? 0.39 : kind === 'tilapia' ? 0.165 : 0.125, dir: r(5) < 0.5 ? -1 : 1, tilt: (r(6) - 0.5) * 0.9, ph: r(7) * TAU };
     });
     const depthAtZ = Z => clampN((Z - SHORE_Z) * 0.45, 0, 2);
-    const MOUND = 0.27;
+    const MOUND = 0.27 * HEAP_K;
     // ----- Shot 1 above water (ASHORE = 223.43 .. T_SHOT2 = 224.85):
     // Painterly coloured-pencil surface breach & lively fish struggle at (SURF_X = 0.16, SURF_Z = 7.44)
     // for one full beat on the calm starlit cove water. Uses the EXACT same heapPath(cx, cy, L, H)
@@ -6736,19 +6776,19 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
       const h = m => hash1(i * 9.17 + m * 2.31 + 5400);
       const kind = SPLASH_KINDS[i % SPLASH_KINDS.length];
       const ang = (i / 15) * TAU + (h(1) - 0.5) * 0.34;
-      const rad = 0.04 + 0.24 * Math.pow(h(2), 0.72);
+      const rad = (0.04 + 0.24 * Math.pow(h(2), 0.72)) * HEAP_K;
       const t0 = (i * 0.072 + 0.04 * h(3)) % 0.88;
       const period = 0.68 + 0.20 * h(4);
       const dur = 0.44 + 0.14 * h(5);
       const dir = h(6) < 0.5 ? -1 : 1;
-      const len = kind === 'barbel' ? 0.26 : kind === 'tilapia' ? 0.22 : 0.18 + 0.04 * h(7);
+      const len = 0.74 * (kind === 'barbel' ? 0.26 : kind === 'tilapia' ? 0.22 : 0.18 + 0.04 * h(7));
       const jumpH = 0.06 + 0.10 * h(8);
       return { kind, dx: Math.cos(ang) * rad, dz: Math.sin(ang) * rad * 0.52, t0, period, dur, dir, len, jumpH, ph: h(9) * TAU, pitch: 0.45 + 0.35 * h(10) };
     });
     const SPLASH_PLUMES = Array.from({ length: 22 }, (_, i) => {
       const h = m => hash1(i * 6.43 + m * 1.97 + 6200);
       const ang = (i / 22) * TAU + (h(1) - 0.5) * 0.35;
-      const rad = 0.05 + 0.30 * Math.pow(h(2), 0.78);
+      const rad = (0.05 + 0.30 * Math.pow(h(2), 0.78)) * HEAP_K;
       return {
         dx: Math.cos(ang) * rad,
         dz: Math.sin(ang) * rad * 0.52,
@@ -6764,7 +6804,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
     const SPLASH_DROPS = Array.from({ length: 42 }, (_, i) => {
       const h = m => hash1(i * 5.71 + m * 3.13 + 7100);
       const ang = h(1) * TAU;
-      const rad = 0.04 + 0.32 * Math.sqrt(h(2));
+      const rad = (0.04 + 0.32 * Math.sqrt(h(2))) * HEAP_K;
       return {
         dx: Math.cos(ang) * rad,
         dz: Math.sin(ang) * rad * 0.55,
@@ -6782,9 +6822,10 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
       const k = Q[2], cx = Q[0], by = Q[1];                 // EXACT (854.42, 797.14), k = 340.136!
       const R = HEAP_R;
       const L = R * 1.6 * k, H = MOUND * k;                 // EXACT (L = 228.57, H = 91.84) as Shot 2!
-      const dt = t - T_EMERGE;
-      if (dt <= 0) return;
-      const emerge = EOUT(clamp01(dt / 0.5));
+      const dt = t - T_CROSS;
+      const ring = smooth(ramp(t, 222.9, 0.4));          // the water stirred round the net as it settles
+      if (ring <= 0) return;
+      const emerge = smooth(ramp(t, T_EMERGE, 0.6));     // the catch itself, taking over from the net
       const aspect = clampN(cam.y / (SURF_Z - cam.z) * 0.52, 0.12, 0.24);
       const W = L * 0.5;
       const collarRy = H * 0.18;
@@ -6797,11 +6838,11 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
       g.save();
       g.globalCompositeOperation = 'lighter';
       const subGr = g.createRadialGradient(cx, by + 0.04 * k, 4, cx, by + 0.06 * k, W * 1.35);
-      subGr.addColorStop(0, `rgba(142,188,244,${(0.24 * emerge).toFixed(3)})`);
-      subGr.addColorStop(0.55, `rgba(74,118,186,${(0.14 * emerge).toFixed(3)})`);
+      subGr.addColorStop(0, `rgba(142,188,244,${(0.24 * ring).toFixed(3)})`);
+      subGr.addColorStop(0.55, `rgba(74,118,186,${(0.14 * ring).toFixed(3)})`);
       subGr.addColorStop(1, 'rgba(32,58,108,0)');
       g.fillStyle = subGr;
-      g.beginPath(); g.ellipse(cx, by + 0.05 * k, W * 1.25, 0.14 * k, 0, 0, TAU); g.fill();
+      g.beginPath(); g.ellipse(cx, by + 0.05 * k, W * 1.25, 0.14 * HEAP_K * k, 0, 0, TAU); g.fill();
       g.restore();
 
       // 2. 7 expanding concentric starlit silver-blue elliptical surface ripples radiating outward around (cx, by)
@@ -6810,7 +6851,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
         const grow = 0.45 + 1.65 * Math.pow(ph, 0.82);
         const rx = W * (1.02 + grow * 1.05);
         const ry = Math.max(4.0, rx * aspect);
-        const al = Math.sin(Math.PI * ph) * (1 - 0.35 * ph) * (0.50 - 0.03 * r) * emerge;
+        const al = Math.sin(Math.PI * ph) * (1 - 0.35 * ph) * (0.50 - 0.03 * r) * ring;
         if (al < 0.015) continue;
         const pR = new Path2D();
         for (let s = 0; s <= 64; s++) {
@@ -6843,7 +6884,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
           g.fillStyle = 'rgba(232,196,142,0.72)'; g.beginPath(); g.ellipse(f[0] - 0.004 * f[2], f[1] - 0.004 * f[2], 0.010 * f[2], 0.004 * f[2], 0, 0, TAU); g.fill();
         }
       };
-      drawCrownFloats(true);
+      g.save(); g.globalAlpha *= emerge; drawCrownFloats(true); g.restore();
 
       // 4. The surfaced net at the EXACT heapPath(cx, by, L, H) silhouette, packed with vigorously struggling fish!
       const body = heapPath(cx, by, L, H);
@@ -6860,7 +6901,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
         const fy = by + 0.02 * k - Fh.v * top + wrigY;
         const tilt = Fh.tilt + 0.26 * Math.sin(t * 14.0 + Fh.ph) + (Fh.dir < 0 ? Math.PI : 0);
         const K = KIND[Fh.kind];
-        const flash = Fh.kind === 'catfish' ? 0 : 0.48 + 0.46 * Math.pow(0.5 + 0.5 * Math.sin(t * 11.5 + Fh.ph), 2);
+        const flash = Fh.kind === 'catfish' ? 0 : 0.36 + 0.36 * Math.pow(0.5 + 0.5 * Math.sin(t * 11.5 + Fh.ph), 2);
         const wig = 0.62 * Math.sin(t * 25 + Fh.ph);
         paintFish(g, fx, fy, tilt, Fh.len * k, Fh.len * K.d * k, K, flash, wig, emerge, t);
       }
@@ -6870,7 +6911,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
         const cyc = ((dt + Fh.t0) % Fh.period) / Fh.dur;
         if (cyc < 0 || cyc > 1) continue;
         const arc = Math.sin(Math.PI * cyc);
-        const X = SURF_X + Fh.dx * 0.85 + Fh.dir * (cyc - 0.5) * 0.14;
+        const X = SURF_X + Fh.dx * 0.85 + Fh.dir * (cyc - 0.5) * 0.14 * HEAP_K;
         const Z = SURF_Z + Fh.dz * 0.75;
         const Y = Fh.jumpH * arc + 0.04;
         if (!P3(X, Y, Z, Q2)) continue;
@@ -6919,8 +6960,10 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
       }
       g.stroke();
       g.fillStyle = '#5c422a';
+      g.save(); g.globalAlpha *= emerge;
       g.beginPath(); g.ellipse(neck[0], neck[1], 0.028 * k, 0.017 * k, 0, 0, TAU); g.fill();
       drawCrownFloats(false);
+      g.restore();
 
       // 5. Churning lacy surface foam collar boiling around the waterline base (cx, by) + spray plumes & starlit droplets!
       const foam = new Path2D();
@@ -6933,7 +6976,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
         foam.moveTo(fx + rr, fy);
         foam.ellipse(fx, fy, rr * 1.35, rr * 0.48, 0, 0, TAU);
       }
-      g.fillStyle = `rgba(212,232,255,${(0.46 * emerge).toFixed(3)})`;
+      g.fillStyle = `rgba(212,232,255,${(0.46 * ring).toFixed(3)})`;
       g.fill(foam);
 
       const sprayArcs = new Path2D(), sprayFine = new Path2D();
@@ -7709,10 +7752,10 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
         g.save(); g.beginPath(); g.rect(-400, HORIZON, SW + 800, SH - HORIZON + 400); g.clip(); g.setTransform(1, 0, 0, 1, 0, 0);
         if (under > 0.003) { g.globalAlpha = under; g.drawImage(c.uw, 0, 0); }
         // the part of the net that's under the water
-        const y0 = Math.max(0, Math.floor(wRow)), bh = c.bag.height - y0;
-        if (bagUnder > 0.003 && bh > 0) { g.globalAlpha = bagUnder; g.drawImage(c.bag, 0, y0, c.bag.width, bh, 0, y0, c.bag.width, bh); }
+        const B = c.bagBox || [0, 0, c.bag.width, c.bag.height], y0 = Math.max(B[1], Math.floor(wRow)), bh = B[3] - y0, bw = B[2] - B[0];
+        if (bagUnder > 0.003 && bh > 0 && bw > 0) { g.globalAlpha = bagUnder; g.drawImage(c.bag, B[0], y0, bw, bh, B[0], y0, bw, bh); }
         g.globalAlpha = Math.max(under, bagUnder);
-        const tintK = smooth(ramp(t, T_CROSS, 0.6));
+        const tintK = smooth(ramp(t, T_CROSS + 0.05, 1.0));
         if (tintK > 0.003) {
           g.globalCompositeOperation = 'multiply';
           g.fillStyle = rgb(mixRGB([255, 255, 255], [46, 74, 118], tintK));
@@ -7746,7 +7789,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
     // ----- the moment the camera breaks through: the starlit shoreline surface
     // glides smoothly down over the lens to HORIZON at ASHORE
     // the surface line comes down the screen as the camera nears the surface, and reaches the horizon as it goes through
-    function wipeY(t) { return HORIZON + Math.min(0, uwCamY(t)) * F / 2.0; }
+    function wipeY(t) { return HORIZON + Math.min(0, uwCamY(t)) * F / 2.4; }
     function meniscus(g, t, y, a) {
       if (a < 0.01) return;
       const p = new Path2D(); p.moveTo(-400, y);
@@ -7780,23 +7823,29 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
       cam.x = 0; cam.y = t < ASHORE ? uwCamY(t) : EYE; cam.z = t < ASHORE ? uwCamZ(t) : 0; setNet(t);
       drawAbove(c, t, d);
 
-      const under = 1 - smooth(ramp(t, T_CROSS + 0.2, 1.3));
-      const clear = 1 - smooth(ramp(t, T_CROSS + 0.1, 1.1));
+      // the water turns from clear to the evening's colour in one even change
+      const under = 1 - smooth(ramp(t, T_CROSS + 0.05, 1.2));
+      const clear = 1 - smooth(ramp(t, T_CROSS + 0.05, 1.0));
       const surfA = smooth(ramp(t, T_CROSS, 0.6));
       // the net seen through the water fades as the water darkens; its top,
       // out of the water, turns into the catch on the surface
       const bagUnder = 1 - smooth(ramp(t, T_EMERGE + 0.2, 1.1));
-      const bagTop = 1 - smooth(ramp(t, T_EMERGE + 0.05, 0.45));
-      const wRow = ((HORIZON + cam.y * F / uwDist(t)) * scale + offY) * dpr;
+      const bagTop = 1 - smooth(ramp(t, T_EMERGE + 0.3, 0.45));   // after the catch is mostly in, so nothing dips
+      const wRow = ((HORIZON + cam.y * F / uwDist(t)) * scale + offY) * dpr, band = 24 * scale * dpr;
       const landA = landAlphaAt(t);
       const splashA = splashAlphaAt(t);
       const heapDryA = heapDryAlphaAt(t);
       const aK = angelKAt(t);
       const w = windAt(t);
 
-      drawSeaLayer(c, t, d, clear, under, surfA, landA, w, bagUnder, wRow);
+      drawSeaLayer(c, t, d, clear, under, surfA, landA, w, bagUnder, wRow - band / 2);
       drawShoreLayer(c, t, d, landA, w, aK);
-      putRows(ctx, c.bag, bagTop, 'source-over', 0, wRow);
+      // the net out of the water, fading softly into the net under it at the waterline
+      const B = c.bagBox;
+      if (bagTop > 0.003 && B) {
+        putRows(ctx, c.bag, bagTop, 'source-over', B[1], Math.min(B[3], wRow - band / 2), B[0], B[2]);
+        for (let i = 0; i < 8; i++) putRows(ctx, c.bag, bagTop * (1 - (i + 0.5) / 8), 'source-over', wRow - band / 2 + i * band / 8, Math.min(B[3], wRow - band / 2 + (i + 1) * band / 8), B[0], B[2]);
+      }
 
       // Depth-sorted catch & 3 arriving humans -> glowing white angels with 3D Verlet wind-blown cloaks!
       const actors = [];
@@ -7899,7 +7948,7 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
           uwMode = true;
           cam.y = uwCamY(t); cam.z = uwCamZ(t);
           setNet(t);
-          drawUnder(c.uw.getContext('2d'), t, c.galaxy, c, c.bag.getContext('2d'));
+          drawUnder(c.uw.getContext('2d'), t, c.galaxy, c, c.bag.getContext('2d'), t >= T_SPLIT, t < T_CROSS + 1.3);
           uwMode = false;
           cam.y = keepY; cam.z = keepZ; setNet(t);
         }
@@ -7907,13 +7956,6 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
           ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = SPACE_OCEAN_HEX; ctx.fillRect(0, 0, canvas.width, canvas.height);
           putCache(c.uw, 1);
           const y = wipeY(t), shK = shallowAt(t);
-          if (shK > 0.01) {
-            const uwAtm = shK * (1 - smooth(ramp(t, T_CROSS - 0.5, 0.5)));
-            ctx.save(); stageTransform(ctx); ctx.beginPath(); ctx.rect(-400, y, SW + 800, SH + 400 - y); ctx.clip();
-            drawRays(ctx, t, uwAtm);
-            drawSpecks(ctx, t, uwAtm);
-            ctx.restore();
-          }
           if (y > -80) {
             // above the surface line: the evening above the water
             ctx.save(); stageTransform(ctx); ctx.beginPath(); ctx.rect(-400, -400, SW + 800, y + 400); ctx.clip();
@@ -7921,7 +7963,15 @@ const CLIPS = {"bones":["lfemur","ltibia","lfoot","ltoes","rfemur","rtibia","rfo
             ctx.restore();
             stageTransform(ctx); meniscus(ctx, t, y, smooth(clamp01((y + 80) / 140)));
           }
-          putCache(c.bag, 1);
+          const B = c.bagBox;
+          if (B) putRows(ctx, c.bag, 1, 'source-over', B[1], B[3], B[0], B[2]);
+          if (shK > 0.01) {
+            const uwAtm = shK * (1 - smooth(ramp(t, T_CROSS - 0.5, 0.5)));
+            ctx.save(); stageTransform(ctx); ctx.beginPath(); ctx.rect(-400, y, SW + 800, SH + 400 - y); ctx.clip();
+            drawRays(ctx, t, uwAtm);
+            drawSpecks(ctx, t, uwAtm);
+            ctx.restore();
+          }
           bloomAt(t);
           cam.y = keepY; cam.z = keepZ;
           return;
